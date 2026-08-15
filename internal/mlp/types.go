@@ -19,6 +19,11 @@ type Target struct {
 // QoS carries the subset of MLP's eqop element this client supports.
 type QoS struct {
 	HorizontalAccuracyMeters *float64
+	VerticalAccuracyMeters   *float64
+	// AccuracyClass is "", "assured", or "best_effort" -- MLP's
+	// qos_class attribute, carried on whichever of hor_acc/alt_acc is
+	// present.
+	AccuracyClass string
 	// ResponseTime is "", "low_delay", or "delay_tolerant".
 	ResponseTime string
 }

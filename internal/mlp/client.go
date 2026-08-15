@@ -51,12 +51,18 @@ type mlpSlir struct {
 type mlpEQoP struct {
 	RespReq *mlpRespReq `xml:"resp_req,omitempty"`
 	HorAcc  *mlpHorAcc  `xml:"hor_acc,omitempty"`
+	AltAcc  *mlpAltAcc  `xml:"alt_acc,omitempty"`
 }
 type mlpRespReq struct {
 	Type string `xml:"type,attr"`
 }
 type mlpHorAcc struct {
-	Value string `xml:",chardata"`
+	QosClass string `xml:"qos_class,attr,omitempty"`
+	Value    string `xml:",chardata"`
+}
+type mlpAltAcc struct {
+	QosClass string `xml:"qos_class,attr,omitempty"`
+	Value    string `xml:",chardata"`
 }
 type mlpLocType struct {
 	Type string `xml:"type,attr"`
@@ -233,9 +239,24 @@ func targetToMsid(t Target) (mlpMsid, error) {
 	return mlpMsid{}, fmt.Errorf("target requires IMSI or MSISDN")
 }
 
-// buildSlir renders a slir wire request. qos.class and vertical accuracy
-// have no MLP eqop equivalent and are not sent -- a genuine protocol
-// gap, not an oversight.
+// mlpQosClassAttr maps a QoS.AccuracyClass value to MLP's qos_class
+// attribute ("" leaves the attribute unset, matching MLP's #IMPLIED
+// default).
+func mlpQosClassAttr(class string) string {
+	switch class {
+	case "assured":
+		return "ASSURED"
+	case "best_effort":
+		return "BEST_EFFORT"
+	default:
+		return ""
+	}
+}
+
+// buildSlir renders a slir wire request. Per MLP's eqop DTD, qos_class
+// is an attribute of the accuracy element itself rather than a
+// standalone field, so it's attached to whichever of hor_acc/alt_acc
+// is present.
 func buildSlir(target Target, locType LocationType, highPriority bool, qos *QoS) (mlpSlir, error) {
 	m, err := targetToMsid(target)
 	if err != nil {
@@ -255,8 +276,13 @@ func buildSlir(target Target, locType LocationType, highPriority bool, qos *QoS)
 	if qos != nil {
 		var e mlpEQoP
 		var any bool
+		qosClass := mlpQosClassAttr(qos.AccuracyClass)
 		if qos.HorizontalAccuracyMeters != nil {
-			e.HorAcc = &mlpHorAcc{Value: strconv.FormatFloat(*qos.HorizontalAccuracyMeters, 'g', -1, 64)}
+			e.HorAcc = &mlpHorAcc{QosClass: qosClass, Value: strconv.FormatFloat(*qos.HorizontalAccuracyMeters, 'g', -1, 64)}
+			any = true
+		}
+		if qos.VerticalAccuracyMeters != nil {
+			e.AltAcc = &mlpAltAcc{QosClass: qosClass, Value: strconv.FormatFloat(*qos.VerticalAccuracyMeters, 'g', -1, 64)}
 			any = true
 		}
 		switch qos.ResponseTime {

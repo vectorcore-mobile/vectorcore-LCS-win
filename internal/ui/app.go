@@ -37,6 +37,9 @@ type App struct {
 	highPriorityCB           *walk.CheckBox
 	useHorAccCB              *walk.CheckBox
 	horAccEdit               *walk.NumberEdit
+	useVertAccCB             *walk.CheckBox
+	vertAccEdit              *walk.NumberEdit
+	accClassCB               *walk.ComboBox
 	respTimeCB               *walk.ComboBox
 	testPB, submitPB, histPB *walk.PushButton
 
@@ -70,6 +73,7 @@ func (a *App) rebuildClient() {
 func (a *App) Run() int {
 	locTypeOptions := []string{"Current position", "Current or last known"}
 	respTimeOptions := []string{"Default", "Low delay", "Delay tolerant"}
+	accClassOptions := []string{"Default", "Assured", "Best effort"}
 
 	mainWin := MainWindow{
 		AssignTo: &a.mw,
@@ -131,13 +135,37 @@ func (a *App) Run() int {
 
 					Label{Text: ""},
 					CheckBox{AssignTo: &a.highPriorityCB, Text: "High priority"},
-
+				},
+			},
+			GroupBox{
+				Title:  "QoS",
+				Layout: Grid{Columns: 2},
+				Children: []Widget{
 					Label{Text: "Horizontal accuracy (m):"},
 					Composite{
 						Layout: HBox{MarginsZero: true},
 						Children: []Widget{
 							CheckBox{AssignTo: &a.useHorAccCB},
 							NumberEdit{AssignTo: &a.horAccEdit, MinValue: 0, MaxValue: 9999, Decimals: 0, Value: 100},
+							HSpacer{},
+						},
+					},
+
+					Label{Text: "Vertical accuracy (m):"},
+					Composite{
+						Layout: HBox{MarginsZero: true},
+						Children: []Widget{
+							CheckBox{AssignTo: &a.useVertAccCB},
+							NumberEdit{AssignTo: &a.vertAccEdit, MinValue: 0, MaxValue: 9999, Decimals: 0, Value: 100},
+							HSpacer{},
+						},
+					},
+
+					Label{Text: "Accuracy class:"},
+					Composite{
+						Layout: HBox{MarginsZero: true},
+						Children: []Widget{
+							ComboBox{AssignTo: &a.accClassCB, Model: accClassOptions, CurrentIndex: 0},
 							HSpacer{},
 						},
 					},
@@ -193,6 +221,7 @@ func (a *App) Run() int {
 	}
 	a.msisdnRB.SetChecked(true)
 	a.horAccEdit.SetValue(100)
+	a.vertAccEdit.SetValue(100)
 	a.mapView.attachEvents()
 	return a.mw.Run()
 }
@@ -287,6 +316,19 @@ func (a *App) qos() *mlp.QoS {
 	if a.useHorAccCB.Checked() {
 		v := a.horAccEdit.Value()
 		q.HorizontalAccuracyMeters = &v
+		any = true
+	}
+	if a.useVertAccCB.Checked() {
+		v := a.vertAccEdit.Value()
+		q.VerticalAccuracyMeters = &v
+		any = true
+	}
+	switch a.accClassCB.CurrentIndex() {
+	case 1:
+		q.AccuracyClass = "assured"
+		any = true
+	case 2:
+		q.AccuracyClass = "best_effort"
 		any = true
 	}
 	switch a.respTimeCB.CurrentIndex() {
